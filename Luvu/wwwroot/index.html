@@ -115,17 +115,26 @@
                 }
 
                 ctx.save();
-
-                // Смещение +2 * baseScale идеально выравнивает геометрический центр этой формулы ровно по центру экрана
                 ctx.translate(centerX + x * baseScale, (centerY - 1.1 * baseScale) + y * baseScale);
                 ctx.rotate(t - Math.PI / 2);
 
-                ctx.shadowBlur = 10 + (volume / 255) * 20;
-                ctx.shadowColor = `rgba(255, 20, 147, ${alpha})`;
-                ctx.fillStyle = `rgba(255, 214, 230, ${alpha})`;
+                // ОПТИМИЗАЦИЯ ТЕНИ: Проверяем, телефон это или комп
+                const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
-                ctx.font = 'bold 11px Arial, sans-serif'; // Слегка уменьшили шрифт под новый размер
+                ctx.fillStyle = `rgba(255, 214, 230, ${alpha})`;
+                ctx.font = 'bold 11px Arial, sans-serif';
                 ctx.textAlign = 'center';
+
+                if (isMobile) {
+                    // На телефонах вместо тяжелого shadowBlur делаем быструю неоновую обводку текста
+                    ctx.strokeStyle = `rgba(255, 20, 147, ${alpha})`;
+                    ctx.lineWidth = 3;
+                    ctx.strokeText("I love you", 0, 0);
+                } else {
+                    // На компе оставляем красивое тяжелое размытие
+                    ctx.shadowBlur = 10 + (volume / 255) * 20;
+                    ctx.shadowColor = `rgba(255, 20, 147, ${alpha})`;
+                }
 
                 ctx.fillText("I love you", 0, 0);
                 ctx.restore();
