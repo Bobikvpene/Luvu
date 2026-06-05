@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Luvu</title>
+    <base href="/" />
+    <link rel="stylesheet" href="css/bootstrap/bootstrap.min.css" />
+    <link rel="stylesheet" href="css/app.css" />
+    <link rel="icon" type="image/png" href="favicon.png" />
+    <link href="Luvu.styles.css" rel="stylesheet" />
+    <link href="manifest.webmanifest" rel="manifest" />
+    <link rel="apple-touch-icon" sizes="512x512" href="icon-512.png" />
+    <link rel="apple-touch-icon" sizes="192x192" href="icon-192.png" />
+</head>
+
+<body>
+    <div id="app">
+        <svg class="loading-progress">
+            <circle r="40%" cx="50%" cy="50%" />
+            <circle r="40%" cx="50%" cy="50%" />
+        </svg>
+        <div class="loading-progress-text"></div>
+    </div>
+
+    <div id="blazor-error-ui">
+        An unhandled error has occurred.
+        <a href="" class="reload">Reload</a>
+        <a class="dismiss">🗙</a>
+    </div>
+    <script src="_framework/blazor.webassembly.js"></script>
+    <script>
+        let audioContext, analyser, dataArray, source;
+
+        // Настраиваем "уши" программы для прослушивания басов
+        window.initAudioBridge = (audioElementId) => {
+            const audio = document.getElementById(audioElementId);
+
+            audio.addEventListener('play', () => {
+                if (!audioContext) {
+                    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                    analyser = audioContext.createAnalyser();
+                    analyser.fftSize = 64; // Оптимальный размер для четкого улавливания бита
+
+                    source = audioContext.createMediaElementSource(audio);
+                    source.connect(analyser);
+                    analyser.connect(audioContext.destination);
+
+                    dataArray = new Uint8Array(analyser.frequencyBinCount);
+                }
+            });
+        };
+
+        // C# будет вызывать эту функцию 60 раз в секунду, чтобы узнать силу баса
+        window.getAudioVolume = () => {
+            if (!analyser) return 0;
+            analyser.getByteFrequencyData(dataArray);
+
+            // Считаем только низкие частоты (первые 8 элементов массива — это самый мощный бас)
+            let bass = 0;
+            for (let i = 0; i < 8; i++) {
+                bass += dataArray[i];
+            }
+            return bass / 8;
+        };
+
+        // Растягиваем холст под экран твоего Айфона или ПК
+        window.resizeCanvas = (canvasId) => {
+            const canvas = document.getElementById(canvasId);
+            if (!canvas) return;
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+
+            window.addEventListener('resize', () => {
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+            });
+        };
+
+        // Рисуем сердце из текста "I love you"
+        let animationFrame = 0; // Счетчик для плавного движения затухания
+
+        window.drawHeartText = (canvasId, volume) => {
+            const canvas = document.getElementById(canvasId);
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // ИДЕАЛЬНЫЙ ЦЕНТР ЭКРАНА
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+
+            animationFrame += 0.06;
+
+            const pulse = 1 + (volume / 255) * 0.3;
+
+            // Уменьшили базовый размер: заменили 42 на 50 (чем больше число, тем меньше сердце)
+            const baseScale = Math.min(canvas.width, canvas.height) / 50 * pulse;
+            const totalTexts = 80;
+
+            for (let i = 0; i < totalTexts; i++) {
+                const t = (i / totalTexts) * Math.PI * 2;
+
+                const x = 16 * Math.pow(Math.sin(t), 3);
+                const y = -(13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - 0.5 * Math.cos(4 * t));
+
+                let alpha = Math.sin(i * 0.4 - animationFrame) * 0.5 + 0.5;
+                alpha = Math.max(alpha, 0.2);
+
+                if (volume > 90) {
+                    alpha = Math.min(1.0, alpha + (volume / 255) * 0.5);
+                }
+
+                ctx.save();
+
+                // Смещение +2 * baseScale идеально выравнивает геометрический центр этой формулы ровно по центру экрана
+                ctx.translate(centerX + x * baseScale, (centerY - 1.1 * baseScale) + y * baseScale);
+                ctx.rotate(t - Math.PI / 2);
+
+                ctx.shadowBlur = 10 + (volume / 255) * 20;
+                ctx.shadowColor = `rgba(255, 20, 147, ${alpha})`;
+                ctx.fillStyle = `rgba(255, 214, 230, ${alpha})`;
+
+                ctx.font = 'bold 11px Arial, sans-serif'; // Слегка уменьшили шрифт под новый размер
+                ctx.textAlign = 'center';
+
+                ctx.fillText("I love you", 0, 0);
+                ctx.restore();
+            }
+        };
+    </script>
+    <script>navigator.serviceWorker.register('service-worker.js');</script>
+</body>
+
+</html>

@@ -1,0 +1,63 @@
+﻿@page "/"
+@inject IJSRuntime JSRuntime
+@using System.Timers
+@implements IDisposable
+
+<PageTitle>I love you</PageTitle>
+
+<div class="visualizer-container">
+    @if (!isStarted)
+    {
+            <div class="start-screen">
+                <button class="btn-start" @onclick="StartVisualizer">ЗАПУСТИТЬ</button>
+            </div>
+    }
+
+    <audio id="myAudio" loop src="angel.mp3" crossorigin="anonymous"></audio>
+
+    <canvas id="heartCanvas"></canvas>
+</div>
+
+@code {
+    private Timer? animationTimer;
+    private bool isStarted = false;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await JSRuntime.InvokeVoidAsync("initAudioBridge", "myAudio");
+
+            // Даем микросекунду на перестроение интерфейса и обновляем размер холста
+            await Task.Delay(50);
+            await JSRuntime.InvokeVoidAsync("resizeCanvas", "heartCanvas");
+
+            animationTimer = new Timer(16);
+            animationTimer.Elapsed += async (sender, e) => await UpdateHeartAnimation();
+            animationTimer.Start();
+        }
+    }
+
+    private async Task StartVisualizer()
+    {
+        isStarted = true;
+        // Запускаем музыку (это сработает, так как пользователь совершил клик)
+        await JSRuntime.InvokeVoidAsync("eval", "document.getElementById('myAudio').play()");
+    }
+
+    private async Task UpdateHeartAnimation()
+    {
+        if (!isStarted) return;
+
+        // Запрашиваем громкость баса из JS
+        var volume = await JSRuntime.InvokeAsync<double>("getAudioVolume");
+
+        // Отправляем её обратно в JS функцию отрисовки
+        await JSRuntime.InvokeVoidAsync("drawHeartText", "heartCanvas", volume);
+    }
+
+    public void Dispose()
+    {
+        animationTimer?.Dispose();
+    }
+}
